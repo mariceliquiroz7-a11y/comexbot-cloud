@@ -657,6 +657,17 @@ async def get_stats():
             "cost_structure": "Sin costos por mensaje"
         }
     }
+@app.get("/pdfs")
+async def list_pdfs():
+    """Lista todos los PDFs disponibles"""
+    global pdf_service
+    if pdf_service is None:
+        return {"status": "⚠️ Servicio PDF no disponible"}
+    try:
+        pdf_list = pdf_service.list_all_pdfs()
+        return {"status": "✅ Disponible", "pdfs": pdf_list}
+    except Exception as e:
+        return {"status": "⚠️ Error al obtener PDFs", "error": str(e)} 
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatMessage):
