@@ -4,3 +4,4 @@ pydantic
 python-dotenv
 gunicorn
 langchain_community
+langchain_huggingface
