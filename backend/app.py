@@ -11,7 +11,7 @@ from datetime import datetime
 
 # Importar el servicio PDF (opcional)
 try:
-    from services.pdf_service import PDFService
+    from backend.services.pdf_service import PDFService
     PDF_SERVICE_AVAILABLE = True
 except ImportError as e:
     PDF_SERVICE_AVAILABLE = False
