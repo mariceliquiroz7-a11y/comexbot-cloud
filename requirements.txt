@@ -6,3 +6,5 @@ gunicorn
 langchain_community
 langchain_huggingface
 sentence-transformers
+pdfplumber
+PyPDF2
