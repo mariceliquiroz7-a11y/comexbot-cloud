@@ -1,8 +1,7 @@
 import os
 import sys
 import asyncio
-from fastapi import FastAPI, HTTPException
-from fastapi.middleware.cors import CORSMiddleware
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
@@ -11,16 +10,21 @@ import re
 import random
 from datetime import datetime
 
-# Importar el servicio PDF con la ruta corregida
+# Importaciones de Langchain
+from langchain_community.embeddings import SentenceTransformerEmbeddings
+from langchain_community.vectorstores import FAISS
+from langchain.docstore.document import Document
+
+# Importar el servicio PDF
 try:
     from pdf_service import PDFService
-    PDF_SERVICE_AVAILABLE = True
-    print("✅ PDFService importado correctamente")
+    PDF_SERVICE_AVAILABLE_MODULE = True
+    print("✅ Módulo PDFService importado correctamente")
 except ImportError as e:
-    PDF_SERVICE_AVAILABLE = False
-    print(f"⚠️ Servicio PDF no disponible: {e}")
+    PDF_SERVICE_AVAILABLE_MODULE = False
+    print(f"⚠️ Módulo PDFService no disponible: {e}")
 except Exception as e:
-    PDF_SERVICE_AVAILABLE = False
+    PDF_SERVICE_AVAILABLE_MODULE = False
     print(f"❌ Error inesperado al importar PDFService: {e}")
 
 # Configurar logging
@@ -43,11 +47,41 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Variable global para el servicio PDF
-# Se inicializa a None. Se cargará en el primer uso.
-pdf_service = None
+# ----- Carga de Recursos al Inicio (Para evitar timeouts) -----
+# Variables globales para los recursos de IA y PDF
+EMBEDDINGS_MODEL = None
+VECTOR_STORE_DB = None
+PDF_SERVICE_INSTANCE = None
 
-# Modelos Pydantic
+try:
+    print("🚀 Cargando modelo de embeddings SentenceTransformer...")
+    # Carga el modelo de embeddings al inicio. Esto puede tardar.
+    EMBEDDINGS_MODEL = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
+    print("✅ Modelo de embeddings cargado.")
+    
+    print("🧠 Cargando base de datos vectorial...")
+    # Carga la base de datos vectorial al inicio.
+    VECTOR_STORE_DB = FAISS.load_local(
+        folder_path="vectorstore",
+        index_name="index",
+        embeddings=EMBEDDINGS_MODEL,
+        allow_dangerous_deserialization=True
+    )
+    print("✅ Base de datos vectorial cargada.")
+    
+    # Inicializa la instancia del servicio PDF una vez que los recursos están listos
+    if PDF_SERVICE_AVAILABLE_MODULE:
+        PDF_SERVICE_INSTANCE = PDFService(db=VECTOR_STORE_DB)
+        print("✅ PDFService inicializado con recursos cargados.")
+    else:
+        print("⚠️ No se pudo inicializar PDFService porque el módulo no se importó.")
+        
+except Exception as e:
+    logger.error(f"❌ Error CRÍTICO al cargar recursos de IA/PDF al inicio: {e}")
+    # Si falla la carga, las variables globales seguirán siendo None
+    # El servicio PDF se reportará como "no disponible".
+
+# ----- Modelos Pydantic -----
 class QueryRequest(BaseModel):
     query: str
     pdf_names: Optional[List[str]] = None
@@ -238,7 +272,7 @@ GENERAL_RESPONSES = [
 • Regímenes especiales (CETICOS, Admisión Temporal)
 • Optimización tributaria legal
 
-¿Sobre qué aspecto específico necesitas asesoría?""",
+¿Sobre qué aspecto específico necesitas asesoría?"""
 ]
 
 # Funciones de IA Local Mejoradas
@@ -318,14 +352,12 @@ Soy especialista en **comercio exterior peruano**. Puedo asesorarte sobre:
     
     return response, 0.3
 
-# ✅ PUNTO DE ENTRADA PARA RENDER
-@app.get("/")
+# ===== ENDPOINTS =====
+
+@app.get("/", summary="Estado del servicio", tags=["Health"])
 async def root():
     """Endpoint raíz con información de la API"""
-    global pdf_service
-    
-    # Lógica de inicialización perezosa para el estado del servicio PDF
-    pdf_status = "✅ Disponible" if pdf_service else "⚠️ No disponible"
+    pdf_status = "✅ Disponible" if PDF_SERVICE_INSTANCE else "❌ No disponible"
     
     return {
         "message": "🚀 ComexBot API funcionando correctamente",
@@ -352,9 +384,7 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Endpoint de salud mejorado"""
-    global pdf_service
-    
-    pdf_service_status = "available" if pdf_service is not None else "unavailable"
+    pdf_service_status = "available" if PDF_SERVICE_INSTANCE is not None else "unavailable"
     
     return {
         "status": "healthy",
@@ -374,8 +404,6 @@ async def health_check():
 @app.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatMessage):
     """Endpoint de chat mejorado - IA local + documentos opcionales"""
-    global pdf_service
-    
     try:
         query = request.message.strip()
         
@@ -386,31 +414,17 @@ async def chat_endpoint(request: ChatMessage):
                 sources=[]
             )
         
-        # ⬇️⬇️⬇️ CÓDIGO CLAVE CORREGIDO PARA LA CARGA PEREZOSA ⬇️⬇️⬇️
-        # Se inicializa el servicio PDF solo si aún no existe
-        if PDF_SERVICE_AVAILABLE and pdf_service is None:
+        # PRIMERA OPCIÓN: Buscar en documentos PDF si el servicio está disponible y cargado
+        if PDF_SERVICE_INSTANCE:
             try:
-                pdf_directory = "docs"
-                cache_directory = "vectorstore"
-                pdf_service = PDFService(pdf_directory=pdf_directory, cache_directory=cache_directory)
-                print("✅ PDFService inicializado correctamente en el primer uso.")
-            except Exception as e:
-                print(f"❌ Error inicializando PDFService: {e}")
-                pdf_service = None
-        # ⬆️⬆️⬆️ CÓDIGO CLAVE CORREGIDO PARA LA CARGA PEREZOSA ⬆️⬆️⬆️
-
-        # PRIMERA OPCIÓN: Buscar en documentos PDF si están disponibles
-        if pdf_service is not None:
-            try:
-                results = pdf_service.search_documents(query=query, k=3)
+                # Usamos la instancia global ya cargada
+                results = PDF_SERVICE_INSTANCE.search_documents(query=query, k=3)
                 
                 if results and len(results) > 0:
-                    # Usar el contenido encontrado
                     best_match = results[0]
                     content = best_match['content']
                     source_pdf = best_match['source_pdf']
                     
-                    # Generar respuesta basada en documento
                     snippet = content[:400].strip()
                     pdf_response = f"""📋 **Información encontrada en documentos:**
 
@@ -444,17 +458,31 @@ async def chat_endpoint(request: ChatMessage):
             sources=[]
         )
 
-# Evento de inicio - Ya no se inicializa el servicio aquí
+# Evento de inicio - Se ejecuta antes de que Gunicorn empiece a aceptar peticiones
 @app.on_event("startup")
 async def startup_event():
     """Evento de inicio para arrancar el servidor rápidamente."""
-    print("🚀 Evento de startup ejecutándose. El servidor está listo.")
-    print("La inicialización de PDFService se hará en el primer uso.")
+    print("🚀 FastAPI Startup event ejecutándose. El servidor está listo para iniciar.")
+    # La carga de recursos (embeddings, db, pdf_service) ya se hizo globalmente antes de app = FastAPI()
+    # para que esté lista cuando Gunicorn inicie los workers.
+    print("Carga de recursos (embeddings, DB, PDFService) completada previamente.")
 
 # Manejo de errores global
+@app.exception_handler(HTTPException)
+async def http_exception_handler(request: Request, exc: HTTPException):
+    logger.error(f"HTTP Exception: {exc.status_code} - {exc.detail}")
+    return JSONResponse(
+        status_code=exc.status_code,
+        content={
+            "error": exc.detail,
+            "message": "Ocurrió un error en la petición.",
+            "timestamp": datetime.now().isoformat()
+        }
+    )
+
 @app.exception_handler(Exception)
-async def global_exception_handler(request, exc):
-    logger.error(f"Error no manejado: {exc}")
+async def global_exception_handler(request: Request, exc: Exception):
+    logger.error(f"Excepción no manejada: {exc}", exc_info=True) # exc_info=True para loggear el traceback
     return JSONResponse(
         status_code=500,
         content={
@@ -463,3 +491,13 @@ async def global_exception_handler(request, exc):
             "support": "Sistema gratuito sin límites - errores ocasionales son normales"
         }
     )
+
+# Para ejecución local con uvicorn (opcional)
+if __name__ == "__main__":
+    if PDF_SERVICE_AVAILABLE_MODULE and EMBEDDINGS_MODEL is None:
+        print("❌ ERROR: El módulo PDFService está disponible, pero los recursos (embeddings/DB) no se cargaron correctamente al inicio.")
+    elif not PDF_SERVICE_AVAILABLE_MODULE:
+        print("⚠️ Advertencia: El módulo PDFService no se pudo importar. La búsqueda en documentos PDF no estará disponible.")
+        
+    print("\nIniciando servidor local con Uvicorn...")
+    uvicorn.run(app, host="0.0.0.0", port=8000)
