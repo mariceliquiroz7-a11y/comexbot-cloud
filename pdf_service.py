@@ -15,12 +15,12 @@ class PDFService:
         if not self.db:
             print("⚠️ Base de datos no disponible. La búsqueda de documentos está deshabilitada.")
             return []
-            
+
         print(f"🔍 Buscando documentos para la consulta: '{query}' (k={k})")
-        
+
         try:
             results = self.db.similarity_search_with_score(query, k=k)
-            
+
             formatted_results = []
             for doc, score in results:
                 formatted_results.append({
@@ -29,10 +29,10 @@ class PDFService:
                     "page": doc.metadata.get("page", "N/A"),
                     "score": score
                 })
-            
+
             print(f"✅ Búsqueda completada. Encontrados {len(formatted_results)} resultados.")
             return formatted_results
-            
+
         except Exception as e:
             logger.error(f"Error durante la búsqueda de documentos: {e}")
             return []

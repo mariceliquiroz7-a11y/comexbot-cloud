@@ -2,7 +2,7 @@ import os
 import sys
 import asyncio
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.middleware.cors import CORSMiddleware  # ¡Esta importación faltaba!
+from fastapi.middleware.cors import CORSMiddleware  # ¡Esta importación estaba faltando!
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
@@ -28,7 +28,8 @@ except Exception as e:
     PDF_SERVICE_AVAILABLE_MODULE = False
     print(f"❌ Error inesperado al importar PDFService: {e}")
 
-# Importar uvicorn (necesario para la ejecución local)
+# Importar uvicorn para la ejecución local
+# Si bien gunicorn se usa en Render, uvicorn es necesario para que el bloque if __name__ == "__main__" funcione localmente
 import uvicorn
 
 # Configurar logging
@@ -79,7 +80,7 @@ try:
         print("✅ PDFService inicializado con recursos cargados.")
     else:
         print("⚠️ No se pudo inicializar PDFService porque el módulo no se importó.")
-        
+
 except Exception as e:
     logger.error(f"❌ Error CRÍTICO al cargar recursos de IA/PDF al inicio: {e}")
     # Si falla la carga, las variables globales seguirán siendo None
@@ -133,7 +134,7 @@ KNOWLEDGE_BASE = {
 **Tiempos aproximados:** 7-15 días hábiles desde llegada al puerto.
 
 ¿Necesitas información específica sobre algún paso o producto?""",
-            
+
             """🚢 **IMPORTACIÓN INTELIGENTE - CONSEJOS PRÁCTICOS:**
 
 **Para Principiantes:**
@@ -161,7 +162,7 @@ KNOWLEDGE_BASE = {
 ¿Qué tipo de producto planeas importar?"""
         ]
     },
-    
+
     "exportacion": {
         "keywords": ["exportar", "exportación", "export", "vender exterior", "enviar productos"],
         "responses": [
@@ -200,7 +201,7 @@ KNOWLEDGE_BASE = {
 ¿Tienes un producto específico en mente para exportar?"""
         ]
     },
-    
+
     "tributos": {
         "keywords": ["tributo", "impuesto", "arancel", "igv", "ipm", "isc", "costo", "pagar"],
         "responses": [
@@ -362,7 +363,7 @@ Soy especialista en **comercio exterior peruano**. Puedo asesorarte sobre:
 async def root():
     """Endpoint raíz con información de la API"""
     pdf_status = "✅ Disponible" if PDF_SERVICE_INSTANCE else "❌ No disponible"
-    
+
     return {
         "message": "🚀 ComexBot API funcionando correctamente",
         "status": "online",
@@ -389,7 +390,7 @@ async def root():
 async def health_check():
     """Endpoint de salud mejorado"""
     pdf_service_status = "available" if PDF_SERVICE_INSTANCE is not None else "unavailable"
-    
+
     return {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
@@ -410,32 +411,32 @@ async def chat_endpoint(request: ChatMessage):
     """Endpoint de chat mejorado - IA local + documentos opcionales"""
     try:
         query = request.message.strip()
-        
+
         if not query:
             return ChatResponse(
                 response="Por favor envía un mensaje para poder ayudarte.",
                 confidence=0.3,
                 sources=[]
             )
-        
+
         # PRIMERA OPCIÓN: Buscar en documentos PDF si el servicio está disponible y cargado
         if PDF_SERVICE_INSTANCE:
             try:
                 # Usamos la instancia global ya cargada
                 results = PDF_SERVICE_INSTANCE.search_documents(query=query, k=3)
-                
+
                 if results and len(results) > 0:
                     best_match = results[0]
                     content = best_match['content']
                     source_pdf = best_match['source_pdf']
-                    
+
                     snippet = content[:400].strip()
                     pdf_response = f"""📋 **Información encontrada en documentos:**
 
 {snippet}...
 
 💡 **¿Te ayuda esta información?** Si necesitas más detalles específicos sobre algún aspecto, pregúntame directamente."""
-                    
+
                     return ChatResponse(
                         response=pdf_response,
                         confidence=0.85,
@@ -443,17 +444,17 @@ async def chat_endpoint(request: ChatMessage):
                     )
             except Exception as e:
                 logger.warning(f"Error en búsqueda PDF: {e}")
-        
+
         # SEGUNDA OPCIÓN: IA Local (siempre disponible)
         intent, score = find_best_intent(query)
         response, confidence = generate_smart_response(intent, score, query)
-        
+
         return ChatResponse(
             response=response,
             confidence=confidence,
             sources=["IA Local - ComexBot"]
         )
-        
+
     except Exception as e:
         logger.error(f"Error en chat: {e}")
         return ChatResponse(
@@ -502,6 +503,6 @@ if __name__ == "__main__":
         print("❌ ERROR: El módulo PDFService está disponible, pero los recursos (embeddings/DB) no se cargaron correctamente al inicio.")
     elif not PDF_SERVICE_AVAILABLE_MODULE:
         print("⚠️ Advertencia: El módulo PDFService no se pudo importar. La búsqueda en documentos PDF no estará disponible.")
-        
+
     print("\nIniciando servidor local con Uvicorn...")
     uvicorn.run(app, host="0.0.0.0", port=8000)
