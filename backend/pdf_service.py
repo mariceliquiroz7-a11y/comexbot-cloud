@@ -9,21 +9,21 @@ logger = logging.getLogger(__name__)
 class PDFService:
     def __init__(self, pdf_directory: str, cache_directory: str):
         self.embeddings = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
-        self.cache_directory = cache_directory
+        # Esta línea es crucial y está bien configurada en tu código:
+        # Asume que 'cache_directory' se pasa desde app.py apuntando a la raíz del proyecto
+        self.cache_directory = cache_directory 
         self.db = None
         self._load_vector_db()
 
     def _load_vector_db(self):
         try:
-            # ⬇️⬇️⬇️ CÓDIGO CORREGIDO ⬇️⬇️⬇️
-            # Carga la base de datos vectorial principal
+            # Esta parte es la que carga la base de datos principal desde la ruta que app.py le pasa
             self.db = FAISS.load_local(
-                folder_path=self.cache_directory, 
-                index_name="index", # Carga el archivo llamado 'index'
+                folder_path=self.cache_directory,
+                index_name="index",  # Carga los archivos index.faiss e index.pkl
                 embeddings=self.embeddings,
                 allow_dangerous_deserialization=True
             )
-            # ⬆️⬆️⬆️ CÓDIGO CORREGIDO ⬆️⬆️⬆️
             print("✅ Base de datos vectorial cargada correctamente.")
         except Exception as e:
             logger.error(f"Error al cargar la base de datos vectorial: {e}")
