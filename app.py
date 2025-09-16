@@ -332,11 +332,8 @@ def initialize_services():
             
             # ⬇️⬇️⬇️ CÓDIGO CORREGIDO ⬇️⬇️⬇️
             # La carpeta 'docs' está en el mismo directorio que 'app.py'
-            pdf_directory = os.path.join(os.path.dirname(__file__), "docs")
-            
-            # La carpeta 'vectorstore' con el índice principal está en la raíz del proyecto
-            parent_dir = os.path.dirname(os.path.dirname(__file__))
-            cache_directory = os.path.join(parent_dir, "vectorstore")
+            pdf_directory = "docs"
+            cache_directory = "vectorstore"
             # ⬆️⬆️⬆️ CÓDIGO CORREGIDO ⬆️⬆️⬆️
             
             print(f"📂 PDF Directory: {pdf_directory}")

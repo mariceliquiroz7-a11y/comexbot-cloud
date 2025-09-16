@@ -19,11 +19,11 @@ class PDFService:
         try:
             # Esta parte es la que carga la base de datos principal desde la ruta que app.py le pasa
             self.db = FAISS.load_local(
-                folder_path=self.cache_directory,
-                index_name="index",  # Carga los archivos index.faiss e index.pkl
-                embeddings=self.embeddings,
-                allow_dangerous_deserialization=True
-            )
+    folder_path="vectorstore", 
+    index_name="index", 
+    embeddings=self.embeddings,
+    allow_dangerous_deserialization=True
+)
             print("✅ Base de datos vectorial cargada correctamente.")
         except Exception as e:
             logger.error(f"Error al cargar la base de datos vectorial: {e}")
