@@ -37,7 +37,7 @@ app = FastAPI(
 # Configurar CORS
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # En producción, especificar dominios específicos
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -329,9 +329,15 @@ def initialize_services():
         
         if PDF_SERVICE_AVAILABLE:
             print("📄 Intentando inicializar PDFService...")
-            # Ruta corregida para PDFs en backend/docs/
+            
+            # ⬇️⬇️⬇️ CÓDIGO CORREGIDO ⬇️⬇️⬇️
+            # La carpeta 'docs' está en el mismo directorio que 'app.py'
             pdf_directory = os.path.join(os.path.dirname(__file__), "docs")
-            cache_directory = os.path.join(os.path.dirname(__file__), "vectorstore")
+            
+            # La carpeta 'vectorstore' con el índice principal está en la raíz del proyecto
+            parent_dir = os.path.dirname(os.path.dirname(__file__))
+            cache_directory = os.path.join(parent_dir, "vectorstore")
+            # ⬆️⬆️⬆️ CÓDIGO CORREGIDO ⬆️⬆️⬆️
             
             print(f"📂 PDF Directory: {pdf_directory}")
             print(f"💾 Cache Directory: {cache_directory}")
