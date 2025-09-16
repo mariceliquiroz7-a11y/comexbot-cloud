@@ -2,6 +2,7 @@ import os
 import sys
 import asyncio
 from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware  # ¡Esta importación faltaba!
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
@@ -26,6 +27,9 @@ except ImportError as e:
 except Exception as e:
     PDF_SERVICE_AVAILABLE_MODULE = False
     print(f"❌ Error inesperado al importar PDFService: {e}")
+
+# Importar uvicorn (necesario para la ejecución local)
+import uvicorn
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -58,7 +62,7 @@ try:
     # Carga el modelo de embeddings al inicio. Esto puede tardar.
     EMBEDDINGS_MODEL = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
     print("✅ Modelo de embeddings cargado.")
-    
+
     print("🧠 Cargando base de datos vectorial...")
     # Carga la base de datos vectorial al inicio.
     VECTOR_STORE_DB = FAISS.load_local(
@@ -68,7 +72,7 @@ try:
         allow_dangerous_deserialization=True
     )
     print("✅ Base de datos vectorial cargada.")
-    
+
     # Inicializa la instancia del servicio PDF una vez que los recursos están listos
     if PDF_SERVICE_AVAILABLE_MODULE:
         PDF_SERVICE_INSTANCE = PDFService(db=VECTOR_STORE_DB)
@@ -243,11 +247,11 @@ Producto: Valor CIF $1,000
 
 # Respuestas generales mejoradas
 GENERAL_RESPONSES = [
-    """¡Hola! Soy ComexBot, tu asistente especializado en **comercio exterior peruano**. 
+    """¡Hola! Soy ComexBot, tu asistente especializado en **comercio exterior peruano**.
 
 🚀 **Puedo ayudarte con:**
 • Importación y exportación paso a paso
-• Cálculo de tributos y aranceles  
+• Cálculo de tributos y aranceles
 • Constitución de empresas comerciales
 • Documentación y certificados
 • Regímenes aduaneros especiales
@@ -256,12 +260,12 @@ GENERAL_RESPONSES = [
 💡 **Pregunta específica:** "¿Cómo importar desde China?" o "¿Cuánto cuesta exportar quinua?"
 
 ¿En qué tema específico te gustaría que te asesore?""",
-    
-    """Perfecto, estás en el lugar correcto para **comercio exterior peruano**. 
+
+    """Perfecto, estás en el lugar correcto para **comercio exterior peruano**.
 
 🎯 **Temas populares:**
 • "Requisitos para importar productos electrónicos"
-• "Pasos para exportar alimentos procesados" 
+• "Pasos para exportar alimentos procesados"
 • "Cómo calcular tributos de importación"
 • "Documentos necesarios para DIGESA"
 • "Beneficios del Drawback"
@@ -284,43 +288,43 @@ def calculate_intent_score(message: str, keywords: List[str]) -> float:
     """Calcula score de intención basado en keywords"""
     normalized_msg = normalize_text(message)
     words = normalized_msg.split()
-    
+
     matches = 0
     for keyword in keywords:
         for word in words:
             if keyword in word or word in keyword:
                 matches += 1
-    
+
     return matches / len(words) if words else 0
 
 def find_best_intent(message: str) -> tuple:
     """Encuentra la mejor intención con score"""
     normalized_msg = normalize_text(message)
-    
+
     # Verificar saludos primero
     greeting_words = ["hola", "buenos", "buenas", "saludos", "hey", "hi", "start"]
     if any(word in normalized_msg for word in greeting_words):
         return "greeting", 1.0
-    
+
     # Buscar mejor intención en knowledge base
     best_intent = None
     max_score = 0
-    
+
     for intent, data in KNOWLEDGE_BASE.items():
         score = calculate_intent_score(message, data["keywords"])
         if score > max_score:
             max_score = score
             best_intent = intent
-    
+
     # Solo retornar intención si score es significativo
     if max_score > 0.1:  # Threshold mínimo
         return best_intent, max_score
-    
+
     return "general", 0.3
 
 def generate_smart_response(intent: str, score: float, original_message: str) -> tuple:
     """Genera respuesta inteligente con confianza"""
-    
+
     if intent == "greeting":
         response = random.choice([
             "¡Hola! 👋 Bienvenido a ComexBot. Soy tu especialista en comercio exterior peruano. ¿En qué puedo ayudarte hoy?",
@@ -328,28 +332,28 @@ def generate_smart_response(intent: str, score: float, original_message: str) ->
             "¡Saludos! Soy ComexBot, tu asistente experto en SUNAT, aduanas y comercio internacional. ¿Qué necesitas saber?"
         ])
         return response, 0.9
-    
+
     if intent == "general":
         response = random.choice(GENERAL_RESPONSES)
         return response, 0.5
-    
+
     if intent in KNOWLEDGE_BASE:
         responses = KNOWLEDGE_BASE[intent]["responses"]
         response = random.choice(responses)
         return response, min(0.9, score + 0.3)
-    
+
     # Fallback response
-    response = """No estoy seguro de cómo ayudarte con esa consulta específica. 
+    response = """No estoy seguro de cómo ayudarte con esa consulta específica.
 
 Soy especialista en **comercio exterior peruano**. Puedo asesorarte sobre:
 • Importación y exportación
 • Tributos y aranceles
-• Documentación aduanera  
+• Documentación aduanera
 • Constitución de empresas
 • Regímenes especiales
 
 ¿Podrías reformular tu pregunta sobre alguno de estos temas?"""
-    
+
     return response, 0.3
 
 # ===== ENDPOINTS =====
@@ -365,7 +369,7 @@ async def root():
         "version": "2.0.0",
         "features": [
             "✅ Conversaciones ilimitadas",
-            "✅ IA local gratuita", 
+            "✅ IA local gratuita",
             "✅ Sin APIs de pago",
             "✅ Disponible 24/7"
         ],
@@ -375,7 +379,7 @@ async def root():
         },
         "endpoints": {
             "chat": "/chat - Conversación principal",
-            "search": "/search - Búsqueda en documentos", 
+            "search": "/search - Búsqueda en documentos",
             "health": "/health - Estado del sistema",
             "stats": "/stats - Estadísticas de uso"
         }
