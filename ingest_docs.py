@@ -20,7 +20,7 @@ os.makedirs(vectorstore_path, exist_ok=True)
 
 # CAMBIO CRÍTICO: Usar el mismo modelo de embeddings que en app.py
 # Ahora ambos archivos usan 'all-MiniLM-L12-v1'
-embeddings = SentenceTransformerEmbeddings(model_name="all-MiniLM-L12-v1")
+embeddings = SentenceTransformerEmbeddings(model_name="paraphrase-MiniLM-L3-v2")
 
 def get_all_pdf_docs(docs_folder):
     """Carga todos los documentos PDF de la carpeta especificada."""

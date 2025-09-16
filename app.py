@@ -61,7 +61,7 @@ try:
     print("🚀 Cargando modelo de embeddings SentenceTransformer...")
     # CAMBIO CRÍTICO: Usamos un modelo más liviano para evitar errores de memoria en Render.
     # all-MiniLM-L12-v1 es una buena alternativa. Si aún falla, prueba con paraphrase-MiniLM-L3-v2.
-    EMBEDDINGS_MODEL = SentenceTransformerEmbeddings(model_name="all-MiniLM-L12-v1")
+    EMBEDDINGS_MODEL =  SentenceTransformerEmbeddings(model_name="paraphrase-MiniLM-L3-v2")
     print("✅ Modelo de embeddings cargado.")
 
     print("🧠 Cargando base de datos vectorial...")
