@@ -8,16 +8,27 @@ logger = logging.getLogger(__name__)
 
 class PDFService:
     def __init__(self, pdf_directory: str, cache_directory: str):
-        self.embeddings = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
+        # El modelo de embeddings no se carga aquí.
+        self.embeddings = None  
         self.cache_directory = cache_directory
-        self.db = None # La base de datos no se carga aquí, solo se inicializa
+        self.db = None
+
+    def _load_embeddings(self):
+        """Carga el modelo de embeddings solo si no ha sido cargado."""
+        if self.embeddings is None:
+            print("🚀 Cargando modelo de embeddings SentenceTransformer...")
+            self.embeddings = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
+            print("✅ Modelo de embeddings cargado correctamente.")
 
     def _load_vector_db(self):
         """Carga la base de datos vectorial solo si no ha sido cargada ya."""
         if self.db is None:
+            # Asegúrate de que los embeddings estén cargados antes de cargar la DB
+            self._load_embeddings()
+            
             try:
                 self.db = FAISS.load_local(
-                    folder_path=self.cache_directory, # Utiliza la variable de instancia
+                    folder_path=self.cache_directory, 
                     index_name="index", 
                     embeddings=self.embeddings,
                     allow_dangerous_deserialization=True
@@ -27,9 +38,10 @@ class PDFService:
                 logger.error(f"Error al cargar la base de datos vectorial: {e}")
                 print("❌ No se pudo cargar la base de datos vectorial. El servicio de búsqueda en PDF no estará disponible.")
                 self.db = None
-    
+
     def search_documents(self, query: str, k: int = 5) -> List[Dict[str, Any]]:
-        # Llama a la función de carga perezosa justo antes de hacer la búsqueda
+        # La carga del modelo de embeddings y de la base de datos
+        # ocurre aquí, justo antes del primer uso.
         self._load_vector_db()
 
         if not self.db:
