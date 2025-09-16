@@ -1,3 +1,4 @@
+# pdf_service.py
 import os
 import logging
 from typing import List, Dict, Any
@@ -8,47 +9,56 @@ logger = logging.getLogger(__name__)
 
 class PDFService:
     def __init__(self, pdf_directory: str, cache_directory: str):
-        # El modelo de embeddings no se carga aquí.
-        self.embeddings = None  
+        # Initialize embeddings as None. It will be loaded on first use.
+        self.embeddings = None
         self.cache_directory = cache_directory
         self.db = None
 
     def _load_embeddings(self):
-        """Carga el modelo de embeddings solo si no ha sido cargado."""
+        """Loads the SentenceTransformerEmbeddings model only if it hasn't been loaded yet."""
         if self.embeddings is None:
-            print("🚀 Cargando modelo de embeddings SentenceTransformer...")
-            self.embeddings = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
-            print("✅ Modelo de embeddings cargado correctamente.")
+            print("🚀 Loading SentenceTransformer embeddings model...")
+            try:
+                self.embeddings = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
+                print("✅ SentenceTransformer embeddings model loaded successfully.")
+            except Exception as e:
+                logger.error(f"Error loading SentenceTransformer embeddings: {e}")
+                print("❌ Failed to load SentenceTransformer embeddings. PDF search functionality may be limited.")
+                self.embeddings = None # Ensure it remains None if loading fails
 
     def _load_vector_db(self):
-        """Carga la base de datos vectorial solo si no ha sido cargada ya."""
+        """Loads the vector database only if it hasn't been loaded yet."""
         if self.db is None:
-            # Asegúrate de que los embeddings estén cargados antes de cargar la DB
+            # Ensure embeddings are loaded before attempting to load the DB
             self._load_embeddings()
-            
+
+            if self.embeddings is None: # Check again if embeddings failed to load
+                print("⚠️ Embeddings model not available, cannot load vector database.")
+                return
+
             try:
+                print(f"📂 Loading FAISS database from: {self.cache_directory}")
                 self.db = FAISS.load_local(
-                    folder_path=self.cache_directory, 
-                    index_name="index", 
+                    folder_path=self.cache_directory,
+                    index_name="index",
                     embeddings=self.embeddings,
                     allow_dangerous_deserialization=True
                 )
-                print("✅ Base de datos vectorial cargada correctamente.")
+                print("✅ Vector database loaded successfully.")
             except Exception as e:
-                logger.error(f"Error al cargar la base de datos vectorial: {e}")
-                print("❌ No se pudo cargar la base de datos vectorial. El servicio de búsqueda en PDF no estará disponible.")
+                logger.error(f"Error loading vector database: {e}")
+                print("❌ Failed to load vector database. PDF search functionality will not be available.")
                 self.db = None
 
     def search_documents(self, query: str, k: int = 5) -> List[Dict[str, Any]]:
-        # La carga del modelo de embeddings y de la base de datos
-        # ocurre aquí, justo antes del primer uso.
+        # Load embeddings and DB if not already loaded, right before the search
         self._load_vector_db()
 
         if not self.db:
-            print("⚠️ Base de datos no disponible. La búsqueda de documentos está deshabilitada.")
+            print("⚠️ Database not available. Document search is disabled.")
             return []
             
-        print(f"🔍 Buscando documentos para la consulta: '{query}' (k={k})")
+        print(f"🔍 Searching documents for query: '{query}' (k={k})")
         
         try:
             results = self.db.similarity_search_with_score(query, k=k)
@@ -62,9 +72,9 @@ class PDFService:
                     "score": score
                 })
             
-            print(f"✅ Búsqueda completada. Encontrados {len(formatted_results)} resultados.")
+            print(f"✅ Search completed. Found {len(formatted_results)} results.")
             return formatted_results
             
         except Exception as e:
-            logger.error(f"Error durante la búsqueda de documentos: {e}")
+            logger.error(f"Error during document search: {e}")
             return []
