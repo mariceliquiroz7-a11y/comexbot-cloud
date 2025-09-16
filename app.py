@@ -10,25 +10,6 @@ import logging
 import re
 import random
 from datetime import datetime
-
-# Importaciones de Langchain
-from langchain_community.embeddings import SentenceTransformerEmbeddings
-from langchain_community.vectorstores import FAISS
-from langchain.docstore.document import Document
-
-# Importar el servicio PDF
-try:
-    from pdf_service import PDFService
-    PDF_SERVICE_AVAILABLE_MODULE = True
-    print("✅ Módulo PDFService importado correctamente")
-except ImportError as e:
-    PDF_SERVICE_AVAILABLE_MODULE = False
-    print(f"⚠️ Módulo PDFService no disponible: {e}")
-except Exception as e:
-    PDF_SERVICE_AVAILABLE_MODULE = False
-    print(f"❌ Error inesperado al importar PDFService: {e}")
-
-# Importar uvicorn para la ejecución local
 import uvicorn
 
 # Configurar logging
@@ -51,36 +32,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ----- Carga de Recursos al Inicio (Para evitar timeouts y problemas de memoria) -----
-# Variables globales para los recursos de IA y PDF
-EMBEDDINGS_MODEL = None
-VECTOR_STORE_DB = None
-PDF_SERVICE_INSTANCE = None
-
-try:
-    print("🚀 Cargando modelo de embeddings SentenceTransformer...")
-    # CAMBIO CRÍTICO: Usamos un modelo más liviano para evitar errores de memoria en Render.
-    # all-MiniLM-L12-v1 es una buena alternativa. Si aún falla, prueba con paraphrase-MiniLM-L3-v2.
-    EMBEDDINGS_MODEL =  SentenceTransformerEmbeddings(model_name="paraphrase-MiniLM-L3-v2")
-    print("✅ Modelo de embeddings cargado.")
-
-    print("🧠 Cargando base de datos vectorial...")
-    VECTOR_STORE_DB = FAISS.load_local(
-        folder_path="vectorstore",
-        index_name="index",
-        embeddings=EMBEDDINGS_MODEL,
-        allow_dangerous_deserialization=True
-    )
-    print("✅ Base de datos vectorial cargada.")
-
-    if PDF_SERVICE_AVAILABLE_MODULE:
-        PDF_SERVICE_INSTANCE = PDFService(db=VECTOR_STORE_DB)
-        print("✅ PDFService inicializado con recursos cargados.")
-    else:
-        print("⚠️ No se pudo inicializar PDFService porque el módulo no se importó.")
-
-except Exception as e:
-    logger.error(f"❌ Error CRÍTICO al cargar recursos de IA/PDF al inicio: {e}")
+# ----- Variables para el servicio de IA local (sin PDF) -----
+PDF_SERVICE_AVAILABLE = False
+print("⚠️ La funcionalidad de búsqueda en documentos PDF está deshabilitada para evitar el error de memoria.")
 
 # ----- Modelos Pydantic -----
 class QueryRequest(BaseModel):
@@ -128,7 +82,6 @@ KNOWLEDGE_BASE = {
 
 **Tiempos aproximados:** 7-15 días hábiles desde llegada al puerto.
 ¿Necesitas información específica sobre algún paso o producto?""",
-
             """🚢 **IMPORTACIÓN INTELIGENTE - CONSEJOS PRÁCTICOS:**
 **Para Principiantes:**
 • Empieza con productos simples (textiles, accesorios)
@@ -155,7 +108,6 @@ KNOWLEDGE_BASE = {
 ¿Qué tipo de producto planeas importar?"""
         ]
     },
-
     "exportacion": {
         "keywords": ["exportar", "exportación", "export", "vender exterior", "enviar productos"],
         "responses": [
@@ -193,7 +145,6 @@ KNOWLEDGE_BASE = {
 ¿Tienes un producto específico en mente para exportar?"""
         ]
     },
-
     "tributos": {
         "keywords": ["tributo", "impuesto", "arancel", "igv", "ipm", "isc", "costo", "pagar"],
         "responses": [
@@ -249,7 +200,6 @@ GENERAL_RESPONSES = [
 
 💡 **Pregunta específica:** "¿Cómo importar desde China?" o "¿Cuánto cuesta exportar quinua?"
 ¿En qué tema específico te gustaría que te asesore?""",
-
     """Perfecto, estás en el lugar correcto para **comercio exterior peruano**.
 🎯 **Temas populares:**
 • "Requisitos para importar productos electrónicos"
@@ -309,6 +259,7 @@ def find_best_intent(message: str) -> tuple:
 
 def generate_smart_response(intent: str, score: float, original_message: str) -> tuple:
     """Genera respuesta inteligente con confianza"""
+
     if intent == "greeting":
         response = random.choice([
             "¡Hola! 👋 Bienvenido a ComexBot. Soy tu especialista en comercio exterior peruano. ¿En qué puedo ayudarte hoy?",
@@ -343,8 +294,8 @@ Soy especialista en **comercio exterior peruano**. Puedo asesorarte sobre:
 @app.get("/", summary="Estado del servicio", tags=["Health"])
 async def root():
     """Endpoint raíz con información de la API"""
-    pdf_status = "✅ Disponible" if PDF_SERVICE_INSTANCE else "❌ No disponible"
-
+    pdf_status = "❌ No disponible"
+    
     return {
         "message": "🚀 ComexBot API funcionando correctamente",
         "status": "online",
@@ -361,17 +312,15 @@ async def root():
         },
         "endpoints": {
             "chat": "/chat - Conversación principal",
-            "search": "/search - Búsqueda en documentos",
             "health": "/health - Estado del sistema",
-            "stats": "/stats - Estadísticas de uso"
         }
     }
 
 @app.get("/health")
 async def health_check():
     """Endpoint de salud mejorado"""
-    pdf_service_status = "available" if PDF_SERVICE_INSTANCE is not None else "unavailable"
-
+    pdf_service_status = "unavailable"
+    
     return {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
@@ -389,49 +338,26 @@ async def health_check():
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatMessage):
-    """Endpoint de chat mejorado - IA local + documentos opcionales"""
+    """Endpoint de chat mejorado - IA local"""
     try:
         query = request.message.strip()
-
+        
         if not query:
             return ChatResponse(
                 response="Por favor envía un mensaje para poder ayudarte.",
                 confidence=0.3,
                 sources=[]
             )
-
-        if PDF_SERVICE_INSTANCE:
-            try:
-                results = PDF_SERVICE_INSTANCE.search_documents(query=query, k=3)
-
-                if results and len(results) > 0:
-                    best_match = results[0]
-                    content = best_match['content']
-                    source_pdf = best_match['source_pdf']
-
-                    snippet = content[:400].strip()
-                    pdf_response = f"""📋 **Información encontrada en documentos:**
-{snippet}...
-
-💡 **¿Te ayuda esta información?** Si necesitas más detalles específicos sobre algún aspecto, pregúntame directamente."""
-
-                    return ChatResponse(
-                        response=pdf_response,
-                        confidence=0.85,
-                        sources=[source_pdf]
-                    )
-            except Exception as e:
-                logger.warning(f"Error en búsqueda PDF: {e}")
-
+        
         intent, score = find_best_intent(query)
         response, confidence = generate_smart_response(intent, score, query)
-
+        
         return ChatResponse(
             response=response,
             confidence=confidence,
             sources=["IA Local - ComexBot"]
         )
-
+        
     except Exception as e:
         logger.error(f"Error en chat: {e}")
         return ChatResponse(
@@ -440,12 +366,12 @@ async def chat_endpoint(request: ChatMessage):
             sources=[]
         )
 
-# Evento de inicio
+# Evento de inicio - Se ejecuta antes de que Gunicorn empiece a aceptar peticiones
 @app.on_event("startup")
 async def startup_event():
     """Evento de inicio para arrancar el servidor rápidamente."""
     print("🚀 FastAPI Startup event ejecutándose. El servidor está listo para iniciar.")
-    print("Carga de recursos (embeddings, DB, PDFService) completada previamente.")
+    print("El servidor cargará solo la IA local para evitar el error de memoria.")
 
 # Manejo de errores global
 @app.exception_handler(HTTPException)
@@ -474,10 +400,5 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 # Para ejecución local con uvicorn (opcional)
 if __name__ == "__main__":
-    if PDF_SERVICE_AVAILABLE_MODULE and EMBEDDINGS_MODEL is None:
-        print("❌ ERROR: El módulo PDFService está disponible, pero los recursos (embeddings/DB) no se cargaron correctamente al inicio.")
-    elif not PDF_SERVICE_AVAILABLE_MODULE:
-        print("⚠️ Advertencia: El módulo PDFService no se pudo importar. La búsqueda en documentos PDF no estará disponible.")
-
     print("\nIniciando servidor local con Uvicorn...")
     uvicorn.run(app, host="0.0.0.0", port=8000)
