@@ -1,4 +1,6 @@
 import os
+import sys
+import asyncio
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -9,13 +11,17 @@ import re
 import random
 from datetime import datetime
 
-# Importar el servicio PDF (opcional)
+# Importar el servicio PDF con la ruta corregida
 try:
-    from backend.services.pdf_service import PDFService
+    from pdf_service import PDFService
     PDF_SERVICE_AVAILABLE = True
+    print("✅ PDFService importado correctamente")
 except ImportError as e:
     PDF_SERVICE_AVAILABLE = False
     print(f"⚠️ Servicio PDF no disponible: {e}")
+except Exception as e:
+    PDF_SERVICE_AVAILABLE = False
+    print(f"❌ Error inesperado al importar PDFService: {e}")
 
 # Configurar logging
 logging.basicConfig(level=logging.INFO)
@@ -152,40 +158,7 @@ KNOWLEDGE_BASE = {
 • Minería y metalurgia
 • Pesca y acuicultura
 
-¿Tienes un producto específico en mente para exportar?""",
-            
-            """✈️ **EXPORTACIÓN EXITOSA - ESTRATEGIAS AVANZADAS:**
-
-**Investigación de Mercados:**
-• Analiza demanda en países objetivo
-• Estudia competencia y precios
-• Verifica barreras arancelarias y no arancelarias
-
-**Canales de Distribución:**
-• Venta directa a importadores
-• Agentes comerciales locales
-• Plataformas B2B (Alibaba, Global Sources)
-• Ferias comerciales internacionales
-
-**Aspectos Financieros:**
-• Cartas de crédito para pagos seguros
-• Seguro de crédito a la exportación
-• SECREX (Seguro de Crédito a la Exportación)
-• Financiamiento pre y post embarque
-
-**Certificaciones Importantes:**
-• ISO 9001, ISO 14001 (calidad y ambiente)
-• Certificados orgánicos (USDA, EU Organic)
-• Fair Trade (comercio justo)
-• BRC, HACCP (alimentos)
-
-**PROMPERU y Apoyo Estatal:**
-• Misiones comerciales
-• Ruedas de negocios
-• Estudios de mercado gratuitos
-• Capacitación exportadora
-
-¿En qué mercado internacional estás interesado?"""
+¿Tienes un producto específico en mente para exportar?"""
         ]
     },
     
@@ -228,182 +201,7 @@ Producto: Valor CIF $1,000
 • Generalmente 0% de tributos
 • Beneficios: Drawback, devolución IGV
 
-¿Necesitas calcular tributos para un producto específico?""",
-            
-            """🧮 **OPTIMIZACIÓN TRIBUTARIA EN COMERCIO EXTERIOR:**
-
-**Estrategias de Ahorro Legal:**
-
-**1. Aprovecha Acuerdos Comerciales:**
-• TLC Perú-China: Reducción progresiva aranceles
-• TLC Perú-USA: Muchos productos 0%
-• Alianza del Pacífico: Preferencias regionales
-• CAN: Productos andinos liberados
-
-**2. Regímenes Aduaneros Especiales:**
-• **Drawback:** Devolución 4% valor FOB exportado
-• **Admisión Temporal:** Suspensión tributos (maquinaria)
-• **CETICOS:** Zonas francas con beneficios
-• **Reposición Franquicia:** Insumos para exportación
-
-**3. Clasificación Arancelaria Correcta:**
-• Asesoría profesional evita sobrecostos
-• Consultas vinculantes a SUNAT
-• Revisión periódica de partidas arancelarias
-
-**4. INCOTERMS Estratégicos:**
-• **FOB:** Control sobre flete y seguro
-• **CIF:** Facilita cálculo de tributos
-• **EXW:** Mínima responsabilidad vendedor
-
-**5. Planificación Financiera:**
-• Garantías nominativas vs efectivo
-• Financiamiento de tributos
-• Cronograma de pagos optimizado
-
-**Herramientas SUNAT Gratuitas:**
-• Simulador de tributos
-• Consulta de partidas arancelarias
-• Calculadora de drawback
-
-¿Quieres que analicemos la optimización para tu producto específico?"""
-        ]
-    },
-    
-    "empresas": {
-        "keywords": ["empresa", "constituir", "sociedad", "ruc", "sunarp", "negocio"],
-        "responses": [
-            """🏢 **CONSTITUCIÓN DE EMPRESAS EN PERÚ:**
-
-**Tipos de Sociedades Más Comunes:**
-
-**1. SAC (Sociedad Anónima Cerrada):**
-• 2-20 accionistas máximo
-• Capital mínimo: Sin monto mínimo
-• Ideal para: Empresas familiares, PYMEs
-• Responsabilidad limitada al capital aportado
-
-**2. SRL (Sociedad de Responsabilidad Limitada):**
-• 2-20 socios máximo
-• Participaciones en lugar de acciones
-• Gestión más flexible que SAC
-• Popular para comercio exterior
-
-**3. EIRL (Empresa Individual de Resp. Limitada):**
-• Un solo titular
-• Capital separado del patrimonio personal
-• Ideal para importadores/exportadores individuales
-
-**Proceso de Constitución:**
-1️⃣ **Reserva de nombre** (SUNARP)
-2️⃣ **Elaboración de minuta** (abogado)
-3️⃣ **Escritura pública** (notario)
-4️⃣ **Inscripción SUNARP** (Registros Públicos)
-5️⃣ **RUC en SUNAT**
-6️⃣ **Licencia municipal**
-
-**Costos Aproximados:**
-• Reserva nombre: S/ 20
-• Minuta: S/ 300-500
-• Escritura pública: S/ 150-300
-• SUNARP: S/ 80-120
-• **Total aprox: S/ 550-940**
-
-¿Qué tipo de sociedad te conviene más para tu negocio?""",
-            
-            """📋 **EMPRESAS PARA COMERCIO EXTERIOR - GUÍA ESPECIALIZADA:**
-
-**Consideraciones Especiales para ComEx:**
-
-**Actividades Económicas CIIU:**
-• 4690: Venta al por mayor no especializada
-• 4610: Venta al por mayor por cuenta propia
-• 4649: Comercio al por mayor de otros enseres
-
-**RUC y Habilitaciones:**
-• RUC activo obligatorio
-• Clave SOL para trámites online
-• Representante legal autorizado
-• Domicilio fiscal actualizado
-
-**Capital Social Recomendado:**
-• **Importación:** Mínimo S/ 10,000-50,000
-• **Exportación:** Desde S/ 5,000
-• **Mixto:** S/ 20,000-100,000
-• Considera garantías aduaneras
-
-**Documentos Corporativos Clave:**
-• Estatuto con objeto social amplio
-• Poder para representante legal
-• Libro de actas actualizado
-• Estados financieros auditados (grandes volúmenes)
-
-**Obligaciones Tributarias:**
-• Régimen General vs MYPE Tributario
-• Libros contables según facturación
-• Declaraciones mensuales y anuales
-• Detracciones en operaciones
-
-**Aspectos Bancarios:**
-• Cuentas en moneda extranjera
-• Líneas de crédito comercial
-• Cartas de crédito documentarias
-• Seguros de mercancía
-
-**Normativa Especial:**
-• Ley contra lavado de activos
-• Reporte de operaciones sospechosas (UIF)
-• Beneficiario final identificado
-
-¿Necesitas asesoría sobre algún aspecto específico de tu futura empresa?"""
-        ]
-    },
-
-    "documentos": {
-        "keywords": ["documento", "certificado", "papel", "trámite", "permiso", "licencia"],
-        "responses": [
-            """📄 **DOCUMENTOS ESENCIALES EN COMERCIO EXTERIOR:**
-
-**IMPORTACIÓN - Documentos Básicos:**
-• **Factura Comercial:** Detalle de mercancía y valores
-• **Packing List:** Lista de empaque detallada
-• **B/L o AWB:** Conocimiento de embarque/guía aérea
-• **Póliza de Seguro:** Cobertura de mercancía
-• **Certificado de Origen:** Preferencias arancelarias
-
-**Documentos Según Producto:**
-
-**🍎 ALIMENTOS:**
-• Certificado sanitario país origen
-• Registro DIGESA del importador
-• Habilitación de establecimiento
-• Análisis bromatológico
-
-**🌱 PRODUCTOS AGRÍCOLAS:**
-• Certificado fitosanitario
-• Permiso fitosanitario SENASA
-• Tratamientos cuarentenarios
-• Certificado orgánico (si aplica)
-
-**🚗 VEHÍCULOS:**
-• Certificado de conformidad
-• Homologación vehicular (MTC)
-• Certificado de emisiones
-• Seguro obligatorio (SOAT)
-
-**💊 MEDICAMENTOS:**
-• Registro sanitario DIGEMID
-• Certificado de Buenas Prácticas
-• Autorización de importación
-• Receta médica (controlados)
-
-**📋 Tips Importantes:**
-• Documentos en español o traducidos
-• Legalización consular según país
-• Vigencias actualizadas
-• Copias certificadas de respaldo
-
-¿Necesitas información específica sobre documentos para tu producto?"""
+¿Necesitas calcular tributos para un producto específico?"""
         ]
     }
 }
@@ -519,69 +317,56 @@ Soy especialista en **comercio exterior peruano**. Puedo asesorarte sobre:
     
     return response, 0.3
 
-# Mantener funciones originales para compatibilidad
-def generate_simple_response(query: str, content: str) -> str:
-    """Genera respuesta simple basada en contenido encontrado de PDFs"""
-    snippet = content[:400].strip()
-    
-    response = f"""📋 **Información encontrada en documentos:**
-
-{snippet}...
-
-💡 **¿Te ayuda esta información?** Si necesitas más detalles específicos sobre algún aspecto, pregúntame directamente.
-
-🤖 También puedo ayudarte con consultas generales sobre comercio exterior sin necesidad de documentos específicos."""
-    
-    return response
-
-def generate_fallback_response(query: str) -> str:
-    """Genera respuestas por defecto cuando no hay documentos relevantes"""
-    intent, score = find_best_intent(query)
-    response, confidence = generate_smart_response(intent, score, query)
-    return response
-
-# Inicialización mejorada
+# Inicialización mejorada y más segura
 def initialize_services():
     """Inicializa servicios con mejor manejo de errores"""
     global pdf_service
     
     try:
-        print("🚀 Iniciando ComexBot API Gratuito Ilimitado...")
-        print("💡 Sistema híbrido: PDFs + IA Local gratuita")
+        print("🚀 Iniciando ComexBot API...")
+        print(f"📍 Directorio actual de trabajo: {os.getcwd()}")
+        print(f"📁 Archivos en directorio actual: {os.listdir('.')}")
         
         if PDF_SERVICE_AVAILABLE:
-            print("📚 Intentando cargar sistema de documentos...")
+            print("📄 Intentando inicializar PDFService...")
+            # Ruta corregida para PDFs en backend/docs/
+            pdf_directory = os.path.join(os.path.dirname(__file__), "docs")
+            cache_directory = os.path.join(os.path.dirname(__file__), "vectorstore")
+            
+            print(f"📂 PDF Directory: {pdf_directory}")
+            print(f"💾 Cache Directory: {cache_directory}")
+            
+            # Verificar si existen los directorios
+            if os.path.exists(pdf_directory):
+                pdf_files = [f for f in os.listdir(pdf_directory) if f.endswith('.pdf')]
+                print(f"✅ Directorio PDF encontrado: {pdf_directory}")
+                print(f"📄 PDFs encontrados: {len(pdf_files)} archivos")
+                if pdf_files:
+                    print(f"📋 Archivos PDF: {pdf_files}")
+            else:
+                print(f"⚠️ Directorio PDF no encontrado: {pdf_directory}")
+            
+            # Intentar crear PDFService pero sin bloquear startup
             try:
-                pdf_service = PDFService(
-                    pdf_directory="data/pdfs",
-                    cache_directory="data/cache"
-                )
-                loaded_count = pdf_service.load_all_pdfs()
-                print(f"✅ {loaded_count} documento(s) PDF cargado(s)")
+                pdf_service = PDFService(pdf_directory=pdf_directory, cache_directory=cache_directory)
+                print("✅ PDFService inicializado correctamente")
             except Exception as e:
-                print(f"⚠️ PDFs no disponibles: {e}")
+                print(f"❌ Error inicializando PDFService: {e}")
                 pdf_service = None
         else:
-            print("⚠️ Servicio PDF no disponible - Solo IA local")
+            print("⚠️ PDFService no disponible - funcionando solo con IA local")
         
         print("🧠 Sistema de IA local activado")
-        print("✅ ComexBot listo - Conversaciones ilimitadas")
-        
+        print("✅ ComexBot listo")
         return True
-        
+
     except Exception as e:
         logger.error(f"Error inicializando servicios: {e}")
-        print(f"❌ Error: {e}")
-        print("⚠️ Sistema iniciado con funcionalidad limitada")
+        print(f"❌ Error general: {e}")
+        print("⚠️ Sistema iniciado con funcionalidad básica")
         return False
 
-# Evento de inicio
-@app.on_event("startup")
-async def startup_event():
-    """Se ejecuta al iniciar la aplicación"""
-    initialize_services()
-
-# Endpoints mejorados
+# ✅ PUNTO DE ENTRADA PARA RENDER
 @app.get("/")
 async def root():
     """Endpoint raíz con información de la API"""
@@ -590,9 +375,9 @@ async def root():
     pdf_status = "✅ Disponible" if pdf_service else "⚠️ No disponible"
     
     return {
-        "message": "ComexBot API - Comercio Exterior Perú",
+        "message": "🚀 ComexBot API funcionando correctamente",
+        "status": "online",
         "version": "2.0.0",
-        "status": "🚀 Funcionando",
         "features": [
             "✅ Conversaciones ilimitadas",
             "✅ IA local gratuita", 
@@ -617,7 +402,6 @@ async def health_check():
     global pdf_service
     
     pdf_service_status = "available" if pdf_service is not None else "unavailable"
-    vectorstores_count = len(pdf_service.vectorstores) if pdf_service else 0
     
     return {
         "status": "healthy",
@@ -625,7 +409,6 @@ async def health_check():
         "services": {
             "ai_local": "active",
             "pdf_service": pdf_service_status,
-            "vectorstores": vectorstores_count,
             "knowledge_base_topics": len(KNOWLEDGE_BASE)
         },
         "system": {
@@ -634,40 +417,6 @@ async def health_check():
             "cost_per_message": 0.0
         }
     }
-
-@app.get("/stats")
-async def get_stats():
-    """Estadísticas del sistema"""
-    global pdf_service
-    
-    return {
-        "knowledge_base": {
-            "total_topics": len(KNOWLEDGE_BASE),
-            "available_topics": list(KNOWLEDGE_BASE.keys()),
-            "total_responses": sum(len(topic["responses"]) for topic in KNOWLEDGE_BASE.values())
-        },
-        "pdf_service": {
-            "status": "available" if pdf_service else "unavailable", 
-            "documents": len(pdf_service.vectorstores) if pdf_service else 0
-        },
-        "system": {
-            "service_type": "Completamente gratuito",
-            "ai_type": "IA Local + Búsqueda en documentos",
-            "conversation_limit": "Ilimitado",
-            "cost_structure": "Sin costos por mensaje"
-        }
-    }
-@app.get("/pdfs")
-async def list_pdfs():
-    """Lista todos los PDFs disponibles"""
-    global pdf_service
-    if pdf_service is None:
-        return {"status": "⚠️ Servicio PDF no disponible"}
-    try:
-        pdf_list = pdf_service.list_all_pdfs()
-        return {"status": "✅ Disponible", "pdfs": pdf_list}
-    except Exception as e:
-        return {"status": "⚠️ Error al obtener PDFs", "error": str(e)} 
 
 @app.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatMessage):
@@ -685,7 +434,7 @@ async def chat_endpoint(request: ChatMessage):
             )
         
         # PRIMERA OPCIÓN: Buscar en documentos PDF si están disponibles
-        if pdf_service is not None and len(pdf_service.vectorstores) > 0:
+        if pdf_service is not None:
             try:
                 results = pdf_service.search_documents(query=query, k=3)
                 
@@ -695,8 +444,13 @@ async def chat_endpoint(request: ChatMessage):
                     content = best_match['content']
                     source_pdf = best_match['source_pdf']
                     
-                    # Generar respuesta basada en documento + IA local
-                    pdf_response = generate_simple_response(query, content)
+                    # Generar respuesta basada en documento
+                    snippet = content[:400].strip()
+                    pdf_response = f"""📋 **Información encontrada en documentos:**
+
+{snippet}...
+
+💡 **¿Te ayuda esta información?** Si necesitas más detalles específicos sobre algún aspecto, pregúntame directamente."""
                     
                     return ChatResponse(
                         response=pdf_response,
@@ -724,71 +478,22 @@ async def chat_endpoint(request: ChatMessage):
             sources=[]
         )
 
-# Mantener endpoints originales para compatibilidad
-@app.post("/search", response_model=QueryResponse)
-async def search_documents(request: QueryRequest):
-    """Busca documentos basado en una consulta"""
-    global pdf_service
-    
-    if pdf_service is None:
-        raise HTTPException(
-            status_code=503, 
-            detail="Servicio de documentos PDF no disponible. Usa /chat para consultas generales."
-        )
-    
-    try:
-        results = pdf_service.search_documents(
-            query=request.query,
-            pdf_names=request.pdf_names,
-            k=request.max_results
-        )
-        
-        return QueryResponse(
-            results=results,
-            total_results=len(results),
-            query=request.query
-        )
-        
-    except Exception as e:
-        logger.error(f"Error en búsqueda: {e}")
-        raise HTTPException(
-            status_code=500,
-            detail=f"Error processing search: {str(e)}"
-        )
+# Evento de inicio - SIN BLOQUEAR
+@app.on_event("startup")
+async def startup_event():
+    """Se ejecuta al iniciar la aplicación - no debe bloquear"""
+    print("🚀 Evento de startup ejecutándose...")
+    # Ejecutar inicialización en background para no bloquear
+    asyncio.create_task(async_initialize())
 
-@app.get("/info")
-async def get_info():
-    """Obtiene información sobre el sistema"""
-    global pdf_service
-    
-    if pdf_service is None:
-        return {
-            "pdf_service": "No disponible",
-            "ai_local": "✅ Disponible",
-            "message": "Sistema funcionando con IA local - Consultas ilimitadas disponibles"
-        }
-    
-    return pdf_service.get_vectorstore_info()
-
-# Endpoint adicional para testing
-@app.post("/test-intent")
-async def test_intent(message: str):
-    """Endpoint para probar detección de intenciones"""
-    intent, score = find_best_intent(message)
-    response, confidence = generate_smart_response(intent, score, message)
-    
-    return {
-        "message": message,
-        "detected_intent": intent,
-        "intent_score": score,
-        "response_confidence": confidence,
-        "response_preview": response[:100] + "..." if len(response) > 100 else response
-    }
+async def async_initialize():
+    """Inicialización asíncrona que no bloquea el startup"""
+    await asyncio.sleep(1)  # Pequeña pausa para permitir que Render detecte el puerto
+    initialize_services()
 
 # Manejo de errores global
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
-    """Manejador global de errores mejorado"""
     logger.error(f"Error no manejado: {exc}")
     return JSONResponse(
         status_code=500,
@@ -798,6 +503,3 @@ async def global_exception_handler(request, exc):
             "support": "Sistema gratuito sin límites - errores ocasionales son normales"
         }
     )
-
-if __name__ == "__main__":
-    import uvicorn
