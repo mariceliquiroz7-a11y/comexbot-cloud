@@ -2,7 +2,7 @@ import os
 import sys
 import asyncio
 from fastapi import FastAPI, HTTPException, Request
-from fastapi.middleware.cors import CORSMiddleware  # ¡Esta importación estaba faltando!
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
@@ -29,7 +29,6 @@ except Exception as e:
     print(f"❌ Error inesperado al importar PDFService: {e}")
 
 # Importar uvicorn para la ejecución local
-# Si bien gunicorn se usa en Render, uvicorn es necesario para que el bloque if __name__ == "__main__" funcione localmente
 import uvicorn
 
 # Configurar logging
@@ -52,7 +51,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ----- Carga de Recursos al Inicio (Para evitar timeouts) -----
+# ----- Carga de Recursos al Inicio (Para evitar timeouts y problemas de memoria) -----
 # Variables globales para los recursos de IA y PDF
 EMBEDDINGS_MODEL = None
 VECTOR_STORE_DB = None
@@ -60,12 +59,12 @@ PDF_SERVICE_INSTANCE = None
 
 try:
     print("🚀 Cargando modelo de embeddings SentenceTransformer...")
-    # Carga el modelo de embeddings al inicio. Esto puede tardar.
-    EMBEDDINGS_MODEL = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
+    # CAMBIO CRÍTICO: Usamos un modelo más liviano para evitar errores de memoria en Render.
+    # all-MiniLM-L12-v1 es una buena alternativa. Si aún falla, prueba con paraphrase-MiniLM-L3-v2.
+    EMBEDDINGS_MODEL = SentenceTransformerEmbeddings(model_name="all-MiniLM-L12-v1")
     print("✅ Modelo de embeddings cargado.")
 
     print("🧠 Cargando base de datos vectorial...")
-    # Carga la base de datos vectorial al inicio.
     VECTOR_STORE_DB = FAISS.load_local(
         folder_path="vectorstore",
         index_name="index",
@@ -74,7 +73,6 @@ try:
     )
     print("✅ Base de datos vectorial cargada.")
 
-    # Inicializa la instancia del servicio PDF una vez que los recursos están listos
     if PDF_SERVICE_AVAILABLE_MODULE:
         PDF_SERVICE_INSTANCE = PDFService(db=VECTOR_STORE_DB)
         print("✅ PDFService inicializado con recursos cargados.")
@@ -83,8 +81,6 @@ try:
 
 except Exception as e:
     logger.error(f"❌ Error CRÍTICO al cargar recursos de IA/PDF al inicio: {e}")
-    # Si falla la carga, las variables globales seguirán siendo None
-    # El servicio PDF se reportará como "no disponible".
 
 # ----- Modelos Pydantic -----
 class QueryRequest(BaseModel):
@@ -112,7 +108,6 @@ KNOWLEDGE_BASE = {
         "keywords": ["importar", "importación", "import", "traer productos", "comprar exterior"],
         "responses": [
             """📦 **GUÍA COMPLETA DE IMPORTACIÓN EN PERÚ:**
-
 **Requisitos Básicos:**
 • RUC activo y habilitado para comercio exterior
 • Registro como importador en SUNAT
@@ -132,11 +127,9 @@ KNOWLEDGE_BASE = {
 5️⃣ Despacho aduanero y retiro de mercancía
 
 **Tiempos aproximados:** 7-15 días hábiles desde llegada al puerto.
-
 ¿Necesitas información específica sobre algún paso o producto?""",
 
             """🚢 **IMPORTACIÓN INTELIGENTE - CONSEJOS PRÁCTICOS:**
-
 **Para Principiantes:**
 • Empieza con productos simples (textiles, accesorios)
 • Volúmenes pequeños para ganar experiencia
@@ -167,7 +160,6 @@ KNOWLEDGE_BASE = {
         "keywords": ["exportar", "exportación", "export", "vender exterior", "enviar productos"],
         "responses": [
             """🌎 **GUÍA DE EXPORTACIÓN DESDE PERÚ:**
-
 **Requisitos Básicos:**
 • RUC activo con actividad de exportación
 • No requiere registro previo como exportador
@@ -206,9 +198,7 @@ KNOWLEDGE_BASE = {
         "keywords": ["tributo", "impuesto", "arancel", "igv", "ipm", "isc", "costo", "pagar"],
         "responses": [
             """💰 **TRIBUTOS EN COMERCIO EXTERIOR PERUANO:**
-
 **IMPORTACIÓN - Tributos Principales:**
-
 **1. Ad Valorem (Arancel Base):**
 • Rango: 0% a 17% según partida arancelaria
 • Base: Valor CIF (Costo + Seguro + Flete)
@@ -249,7 +239,6 @@ Producto: Valor CIF $1,000
 # Respuestas generales mejoradas
 GENERAL_RESPONSES = [
     """¡Hola! Soy ComexBot, tu asistente especializado en **comercio exterior peruano**.
-
 🚀 **Puedo ayudarte con:**
 • Importación y exportación paso a paso
 • Cálculo de tributos y aranceles
@@ -259,11 +248,9 @@ GENERAL_RESPONSES = [
 • Optimización de costos
 
 💡 **Pregunta específica:** "¿Cómo importar desde China?" o "¿Cuánto cuesta exportar quinua?"
-
 ¿En qué tema específico te gustaría que te asesore?""",
 
     """Perfecto, estás en el lugar correcto para **comercio exterior peruano**.
-
 🎯 **Temas populares:**
 • "Requisitos para importar productos electrónicos"
 • "Pasos para exportar alimentos procesados"
@@ -302,12 +289,10 @@ def find_best_intent(message: str) -> tuple:
     """Encuentra la mejor intención con score"""
     normalized_msg = normalize_text(message)
 
-    # Verificar saludos primero
     greeting_words = ["hola", "buenos", "buenas", "saludos", "hey", "hi", "start"]
     if any(word in normalized_msg for word in greeting_words):
         return "greeting", 1.0
 
-    # Buscar mejor intención en knowledge base
     best_intent = None
     max_score = 0
 
@@ -317,15 +302,13 @@ def find_best_intent(message: str) -> tuple:
             max_score = score
             best_intent = intent
 
-    # Solo retornar intención si score es significativo
-    if max_score > 0.1:  # Threshold mínimo
+    if max_score > 0.1:
         return best_intent, max_score
 
     return "general", 0.3
 
 def generate_smart_response(intent: str, score: float, original_message: str) -> tuple:
     """Genera respuesta inteligente con confianza"""
-
     if intent == "greeting":
         response = random.choice([
             "¡Hola! 👋 Bienvenido a ComexBot. Soy tu especialista en comercio exterior peruano. ¿En qué puedo ayudarte hoy?",
@@ -343,9 +326,7 @@ def generate_smart_response(intent: str, score: float, original_message: str) ->
         response = random.choice(responses)
         return response, min(0.9, score + 0.3)
 
-    # Fallback response
     response = """No estoy seguro de cómo ayudarte con esa consulta específica.
-
 Soy especialista en **comercio exterior peruano**. Puedo asesorarte sobre:
 • Importación y exportación
 • Tributos y aranceles
@@ -419,10 +400,8 @@ async def chat_endpoint(request: ChatMessage):
                 sources=[]
             )
 
-        # PRIMERA OPCIÓN: Buscar en documentos PDF si el servicio está disponible y cargado
         if PDF_SERVICE_INSTANCE:
             try:
-                # Usamos la instancia global ya cargada
                 results = PDF_SERVICE_INSTANCE.search_documents(query=query, k=3)
 
                 if results and len(results) > 0:
@@ -432,7 +411,6 @@ async def chat_endpoint(request: ChatMessage):
 
                     snippet = content[:400].strip()
                     pdf_response = f"""📋 **Información encontrada en documentos:**
-
 {snippet}...
 
 💡 **¿Te ayuda esta información?** Si necesitas más detalles específicos sobre algún aspecto, pregúntame directamente."""
@@ -445,7 +423,6 @@ async def chat_endpoint(request: ChatMessage):
             except Exception as e:
                 logger.warning(f"Error en búsqueda PDF: {e}")
 
-        # SEGUNDA OPCIÓN: IA Local (siempre disponible)
         intent, score = find_best_intent(query)
         response, confidence = generate_smart_response(intent, score, query)
 
@@ -463,13 +440,11 @@ async def chat_endpoint(request: ChatMessage):
             sources=[]
         )
 
-# Evento de inicio - Se ejecuta antes de que Gunicorn empiece a aceptar peticiones
+# Evento de inicio
 @app.on_event("startup")
 async def startup_event():
     """Evento de inicio para arrancar el servidor rápidamente."""
     print("🚀 FastAPI Startup event ejecutándose. El servidor está listo para iniciar.")
-    # La carga de recursos (embeddings, db, pdf_service) ya se hizo globalmente antes de app = FastAPI()
-    # para que esté lista cuando Gunicorn inicie los workers.
     print("Carga de recursos (embeddings, DB, PDFService) completada previamente.")
 
 # Manejo de errores global
@@ -487,7 +462,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
-    logger.error(f"Excepción no manejada: {exc}", exc_info=True) # exc_info=True para loggear el traceback
+    logger.error(f"Excepción no manejada: {exc}", exc_info=True)
     return JSONResponse(
         status_code=500,
         content={

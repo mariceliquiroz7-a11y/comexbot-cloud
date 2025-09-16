@@ -5,11 +5,10 @@ from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import SentenceTransformerEmbeddings
 from langchain.docstore.document import Document
 
-# ⬇️⬇️⬇️ CÓDIGO CORREGIDO ⬇️⬇️⬇️
+# ⬇️⬇️⬇️ CÓDIGO FINAL ⬇️⬇️⬇️
 
-# Asume que el script ingest_docs.py ahora está en la raíz del proyecto
+# Asume que el script ingest.py está en la raíz del proyecto
 # y la carpeta 'docs' también está en la raíz.
-# Por lo tanto, no necesitamos buscar la ruta del padre.
 docs_path = "docs"
 
 # La carpeta 'vectorstore' que contendrá el índice principal
@@ -19,9 +18,9 @@ vectorstore_path = "vectorstore"
 os.makedirs(docs_path, exist_ok=True)
 os.makedirs(vectorstore_path, exist_ok=True)
 
-# ⬆️⬆️⬆️ CÓDIGO CORREGIDO ⬆️⬆️⬆️
-
-embeddings = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
+# CAMBIO CRÍTICO: Usar el mismo modelo de embeddings que en app.py
+# Ahora ambos archivos usan 'all-MiniLM-L12-v1'
+embeddings = SentenceTransformerEmbeddings(model_name="all-MiniLM-L12-v1")
 
 def get_all_pdf_docs(docs_folder):
     """Carga todos los documentos PDF de la carpeta especificada."""
