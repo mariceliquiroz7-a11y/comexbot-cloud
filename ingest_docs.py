@@ -7,15 +7,19 @@ from langchain.docstore.document import Document
 
 # ⬇️⬇️⬇️ CÓDIGO CORREGIDO ⬇️⬇️⬇️
 
-# La carpeta 'docs' está en el mismo directorio que el script (backend)
-docs_path = os.path.join(os.path.dirname(__file__), "docs")
+# Asume que el script ingest_docs.py ahora está en la raíz del proyecto
+# y la carpeta 'docs' también está en la raíz.
+# Por lo tanto, no necesitamos buscar la ruta del padre.
+docs_path = "docs"
 
-# La carpeta 'vectorstore' que contendrá el índice principal está en la raíz
-parent_dir = os.path.dirname(os.path.dirname(__file__))
-vectorstore_path = os.path.join(parent_dir, "vectorstore")
+# La carpeta 'vectorstore' que contendrá el índice principal
+vectorstore_path = "vectorstore"
 
-# Crear carpeta vectorstore si no existe
+# Crear carpetas si no existen
+os.makedirs(docs_path, exist_ok=True)
 os.makedirs(vectorstore_path, exist_ok=True)
+
+# ⬆️⬆️⬆️ CÓDIGO CORREGIDO ⬆️⬆️⬆️
 
 embeddings = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
 
@@ -28,10 +32,10 @@ def get_all_pdf_docs(docs_folder):
                 print(f"\n🔄 Procesando: {file}")
                 loader = PyPDFLoader(os.path.join(docs_folder, file))
                 docs = loader.load()
-                print(f"   📄 Cargado con {len(docs)} páginas")
+                print(f"   📄 Cargado con {len(docs)} páginas")
                 all_docs.extend(docs)
             except Exception as e:
-                print(f"   ❌ Error procesando {file}: {str(e)}")
+                print(f"   ❌ Error procesando {file}: {str(e)}")
     return all_docs
 
 print("🚀 Iniciando la carga de documentos PDF...")
@@ -40,7 +44,7 @@ print("🚀 Iniciando la carga de documentos PDF...")
 documents = get_all_pdf_docs(docs_path)
 
 if not documents:
-    print("⚠️ No se encontraron documentos PDF para procesar. Asegúrate de que están en la carpeta 'backend/docs'.")
+    print("⚠️ No se encontraron documentos PDF para procesar. Asegúrate de que están en la carpeta 'docs' en la raíz del proyecto.")
 else:
     print(f"\n✅ Cargados {len(documents)} páginas de documentos en total.")
 
@@ -49,7 +53,7 @@ else:
     db = FAISS.from_documents(documents, embeddings)
 
     # Guardar la base de datos vectorial principal en la raíz
-    db.save_local(vectorstore_path)
+    db.save_local(vectorstore_path, index_name="index")
     
     print("\n🎉 ¡Procesamiento y guardado de la base de datos principal completado!")
     print(f"La base de datos se encuentra en la ruta: {vectorstore_path}")

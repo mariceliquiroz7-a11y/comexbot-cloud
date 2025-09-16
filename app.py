@@ -44,6 +44,7 @@ app.add_middleware(
 )
 
 # Variable global para el servicio PDF
+# Se inicializa a None. Se cargará en el primer uso.
 pdf_service = None
 
 # Modelos Pydantic
@@ -212,7 +213,7 @@ GENERAL_RESPONSES = [
 
 🚀 **Puedo ayudarte con:**
 • Importación y exportación paso a paso
-• Cálculo de tributos y aranceles  
+• Cálculo de tributos y aranceles  
 • Constitución de empresas comerciales
 • Documentación y certificados
 • Regímenes aduaneros especiales
@@ -309,7 +310,7 @@ def generate_smart_response(intent: str, score: float, original_message: str) ->
 Soy especialista en **comercio exterior peruano**. Puedo asesorarte sobre:
 • Importación y exportación
 • Tributos y aranceles
-• Documentación aduanera  
+• Documentación aduanera  
 • Constitución de empresas
 • Regímenes especiales
 
@@ -317,64 +318,13 @@ Soy especialista en **comercio exterior peruano**. Puedo asesorarte sobre:
     
     return response, 0.3
 
-# Inicialización mejorada y más segura
-def initialize_services():
-    """Inicializa servicios con mejor manejo de errores"""
-    global pdf_service
-    
-    try:
-        print("🚀 Iniciando ComexBot API...")
-        print(f"📍 Directorio actual de trabajo: {os.getcwd()}")
-        print(f"📁 Archivos en directorio actual: {os.listdir('.')}")
-        
-        if PDF_SERVICE_AVAILABLE:
-            print("📄 Intentando inicializar PDFService...")
-            
-            # ⬇️⬇️⬇️ CÓDIGO CORREGIDO ⬇️⬇️⬇️
-            # La carpeta 'docs' está en el mismo directorio que 'app.py'
-            pdf_directory = "docs"
-            cache_directory = "vectorstore"
-            # ⬆️⬆️⬆️ CÓDIGO CORREGIDO ⬆️⬆️⬆️
-            
-            print(f"📂 PDF Directory: {pdf_directory}")
-            print(f"💾 Cache Directory: {cache_directory}")
-            
-            # Verificar si existen los directorios
-            if os.path.exists(pdf_directory):
-                pdf_files = [f for f in os.listdir(pdf_directory) if f.endswith('.pdf')]
-                print(f"✅ Directorio PDF encontrado: {pdf_directory}")
-                print(f"📄 PDFs encontrados: {len(pdf_files)} archivos")
-                if pdf_files:
-                    print(f"📋 Archivos PDF: {pdf_files}")
-            else:
-                print(f"⚠️ Directorio PDF no encontrado: {pdf_directory}")
-            
-            # Intentar crear PDFService pero sin bloquear startup
-            try:
-                pdf_service = PDFService(pdf_directory=pdf_directory, cache_directory=cache_directory)
-                print("✅ PDFService inicializado correctamente")
-            except Exception as e:
-                print(f"❌ Error inicializando PDFService: {e}")
-                pdf_service = None
-        else:
-            print("⚠️ PDFService no disponible - funcionando solo con IA local")
-        
-        print("🧠 Sistema de IA local activado")
-        print("✅ ComexBot listo")
-        return True
-
-    except Exception as e:
-        logger.error(f"Error inicializando servicios: {e}")
-        print(f"❌ Error general: {e}")
-        print("⚠️ Sistema iniciado con funcionalidad básica")
-        return False
-
 # ✅ PUNTO DE ENTRADA PARA RENDER
 @app.get("/")
 async def root():
     """Endpoint raíz con información de la API"""
     global pdf_service
     
+    # Lógica de inicialización perezosa para el estado del servicio PDF
     pdf_status = "✅ Disponible" if pdf_service else "⚠️ No disponible"
     
     return {
@@ -436,6 +386,19 @@ async def chat_endpoint(request: ChatMessage):
                 sources=[]
             )
         
+        # ⬇️⬇️⬇️ CÓDIGO CLAVE CORREGIDO PARA LA CARGA PEREZOSA ⬇️⬇️⬇️
+        # Se inicializa el servicio PDF solo si aún no existe
+        if PDF_SERVICE_AVAILABLE and pdf_service is None:
+            try:
+                pdf_directory = "docs"
+                cache_directory = "vectorstore"
+                pdf_service = PDFService(pdf_directory=pdf_directory, cache_directory=cache_directory)
+                print("✅ PDFService inicializado correctamente en el primer uso.")
+            except Exception as e:
+                print(f"❌ Error inicializando PDFService: {e}")
+                pdf_service = None
+        # ⬆️⬆️⬆️ CÓDIGO CLAVE CORREGIDO PARA LA CARGA PEREZOSA ⬆️⬆️⬆️
+
         # PRIMERA OPCIÓN: Buscar en documentos PDF si están disponibles
         if pdf_service is not None:
             try:
@@ -481,18 +444,12 @@ async def chat_endpoint(request: ChatMessage):
             sources=[]
         )
 
-# Evento de inicio - SIN BLOQUEAR
+# Evento de inicio - Ya no se inicializa el servicio aquí
 @app.on_event("startup")
 async def startup_event():
-    """Se ejecuta al iniciar la aplicación - no debe bloquear"""
-    print("🚀 Evento de startup ejecutándose...")
-    # Ejecutar inicialización en background para no bloquear
-    asyncio.create_task(async_initialize())
-
-async def async_initialize():
-    """Inicialización asíncrona que no bloquea el startup"""
-    await asyncio.sleep(1)  # Pequeña pausa para permitir que Render detecte el puerto
-    initialize_services()
+    """Evento de inicio para arrancar el servidor rápidamente."""
+    print("🚀 Evento de startup ejecutándose. El servidor está listo.")
+    print("La inicialización de PDFService se hará en el primer uso.")
 
 # Manejo de errores global
 @app.exception_handler(Exception)

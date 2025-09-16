@@ -9,28 +9,29 @@ logger = logging.getLogger(__name__)
 class PDFService:
     def __init__(self, pdf_directory: str, cache_directory: str):
         self.embeddings = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
-        # Esta línea es crucial y está bien configurada en tu código:
-        # Asume que 'cache_directory' se pasa desde app.py apuntando a la raíz del proyecto
-        self.cache_directory = cache_directory 
-        self.db = None
-        self._load_vector_db()
+        self.cache_directory = cache_directory
+        self.db = None # La base de datos no se carga aquí, solo se inicializa
 
     def _load_vector_db(self):
-        try:
-            # Esta parte es la que carga la base de datos principal desde la ruta que app.py le pasa
-            self.db = FAISS.load_local(
-    folder_path="vectorstore", 
-    index_name="index", 
-    embeddings=self.embeddings,
-    allow_dangerous_deserialization=True
-)
-            print("✅ Base de datos vectorial cargada correctamente.")
-        except Exception as e:
-            logger.error(f"Error al cargar la base de datos vectorial: {e}")
-            print("❌ No se pudo cargar la base de datos vectorial. El servicio de búsqueda en PDF no estará disponible.")
-            self.db = None
-
+        """Carga la base de datos vectorial solo si no ha sido cargada ya."""
+        if self.db is None:
+            try:
+                self.db = FAISS.load_local(
+                    folder_path=self.cache_directory, # Utiliza la variable de instancia
+                    index_name="index", 
+                    embeddings=self.embeddings,
+                    allow_dangerous_deserialization=True
+                )
+                print("✅ Base de datos vectorial cargada correctamente.")
+            except Exception as e:
+                logger.error(f"Error al cargar la base de datos vectorial: {e}")
+                print("❌ No se pudo cargar la base de datos vectorial. El servicio de búsqueda en PDF no estará disponible.")
+                self.db = None
+    
     def search_documents(self, query: str, k: int = 5) -> List[Dict[str, Any]]:
+        # Llama a la función de carga perezosa justo antes de hacer la búsqueda
+        self._load_vector_db()
+
         if not self.db:
             print("⚠️ Base de datos no disponible. La búsqueda de documentos está deshabilitada.")
             return []
